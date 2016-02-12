@@ -38,7 +38,6 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.Vibrator;
 import android.provider.Settings;
-import android.provider.Settings.Global;
 import android.util.Log;
 import android.view.KeyEvent;
 
@@ -91,13 +90,12 @@ public class KeyHandler implements DeviceKeyHandler {
     private boolean mTorchEnabled;
     private Sensor mProximitySensor;
     private Vibrator mVibrator;
-    private WakeLock mProximityWakeLock;
-    private WakeLock mGestureWakeLock;
+    WakeLock mProximityWakeLock;
+    WakeLock mGestureWakeLock;
     private int mProximityTimeOut;
     private boolean mProximityWakeSupported;
-    private NotificationManager mNotificationManager;
 
-    private boolean mNotificationSliderVibrate;
+    private NotificationManager mNotificationManager;
     private int mNotificationSliderPosition;
     private Thread mNotificationThread;
 
@@ -171,10 +169,8 @@ public class KeyHandler implements DeviceKeyHandler {
     private class EventHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-            KeyEvent event = (KeyEvent) msg.obj;
-            int scanCode = event.getScanCode();
-            switch (scanCode) {
-			case FLIP_CAMERA_SCANCODE:
+            switch (msg.arg1) {
+            case FLIP_CAMERA_SCANCODE:
             case GESTURE_CIRCLE_SCANCODE:
                 if (msg.obj != null && msg.obj instanceof DeviceHandlerCallback) {
                     ((DeviceHandlerCallback) msg.obj).onScreenCameraGesture();
@@ -211,22 +207,29 @@ public class KeyHandler implements DeviceKeyHandler {
     }
 
     private void setNotification(int scanCode) {
-        int zenMode = Global.ZEN_MODE_OFF;
+        int zenMode = Settings.Global.ZEN_MODE_OFF;
         if (scanCode == MODE_TOTAL_SILENCE) {
-            zenMode = Global.ZEN_MODE_NO_INTERRUPTIONS;
+            zenMode = Settings.Global.ZEN_MODE_NO_INTERRUPTIONS;
         } else if (scanCode == MODE_PRIORITY_ONLY) {
-            zenMode = Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS;
+            zenMode = Settings.Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS;
         }
         mNotificationManager.setZenMode(zenMode, null, null);
         doHapticFeedback(true);
     }
 
+    @Override
     public boolean handleKeyEvent(KeyEvent event, DeviceHandlerCallback callback) {
-        if (event.getAction() != KeyEvent.ACTION_UP) {
+        boolean isKeySupported = ArrayUtils.contains(sSupportedGestures, event.getScanCode());
+        if (!isKeySupported) {
             return false;
         }
-        int scanCode;
-        boolean isKeySupported = ArrayUtils.contains(sSupportedGestures, event.getScanCode());
+
+		int scanCode;
+
+        if (event.getAction() != KeyEvent.ACTION_UP) {
+            return true;
+        }
+
         if ((scanCode = event.getScanCode()) >= MODE_TOTAL_SILENCE && scanCode <= MODE_NONE) {
             mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
             mNotificationSliderPosition = scanCode;
@@ -235,7 +238,7 @@ public class KeyHandler implements DeviceKeyHandler {
                     @Override
                     public void run() {
                         try {
-                            Thread.sleep(500);
+                            Thread.sleep(250);
                             mNotificationThread = null;
                             setNotification(mNotificationSliderPosition);
                         } catch (InterruptedException e) {
@@ -247,7 +250,7 @@ public class KeyHandler implements DeviceKeyHandler {
             } else {
                 setNotification(scanCode);
             }
-        } else if (isKeySupported && !mEventHandler.hasMessages(GESTURE_REQUEST)) {
+        } else if (!mEventHandler.hasMessages(GESTURE_REQUEST)) {
             Message msg = getMessageForKeyEvent(event.getScanCode(), callback);
             boolean defaultProximity = mContext.getResources().getBoolean(
                 org.cyanogenmod.platform.internal.R.bool.config_proximityCheckOnWakeEnabledByDefault);
@@ -260,7 +263,7 @@ public class KeyHandler implements DeviceKeyHandler {
                 mEventHandler.sendMessage(msg);
             }
         }
-        return isKeySupported;
+        return true;
     }
 
     private Message getMessageForKeyEvent(int scancode, DeviceHandlerCallback callback) {
