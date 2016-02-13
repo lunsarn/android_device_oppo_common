@@ -175,10 +175,6 @@ public class KeyHandler implements DeviceKeyHandler {
             int scanCode = event.getScanCode();
             switch (scanCode) {
 			case FLIP_CAMERA_SCANCODE:
-                mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
-                mPowerManager.wakeUp(SystemClock.uptimeMillis());
-                doHapticFeedback();
-                break;
             case GESTURE_CIRCLE_SCANCODE:
                 if (msg.obj != null && msg.obj instanceof DeviceHandlerCallback) {
                     ((DeviceHandlerCallback) msg.obj).onScreenCameraGesture();
