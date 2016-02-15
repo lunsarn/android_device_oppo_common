@@ -1,4 +1,1 @@
-Common device tree for Oppo devices
-
-Copyright 2014, The CyanogenMod Project
-
+[TEMP] Oppo Common for Broken Camera and T2W
