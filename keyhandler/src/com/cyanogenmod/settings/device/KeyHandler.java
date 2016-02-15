@@ -44,6 +44,7 @@ import android.os.UserHandle;
 import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.provider.Settings.Global;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.WindowManagerGlobal;
@@ -101,12 +102,13 @@ public class KeyHandler implements DeviceKeyHandler {
     private boolean mTorchEnabled;
     private Sensor mProximitySensor;
     private Vibrator mVibrator;
-    WakeLock mProximityWakeLock;
-    WakeLock mGestureWakeLock;
+    private WakeLock mProximityWakeLock;
+    private WakeLock mGestureWakeLock;
     private int mProximityTimeOut;
     private boolean mProximityWakeSupported;
-
     private NotificationManager mNotificationManager;
+
+    private boolean mNotificationSliderVibrate;
     private int mNotificationSliderPosition;
     private Thread mNotificationThread;
 
@@ -188,18 +190,24 @@ public class KeyHandler implements DeviceKeyHandler {
         @Override
         public void handleMessage(Message msg) {
 <<<<<<< HEAD
+<<<<<<< HEAD
             switch (msg.arg1) {
             case FLIP_CAMERA_SCANCODE:
 =======
+=======
+>>>>>>> parent of 65d6a58... keyhandler: Some clean up
             KeyEvent event = (KeyEvent) msg.obj;
             int scanCode = event.getScanCode();
             switch (scanCode) {
 			case FLIP_CAMERA_SCANCODE:
+<<<<<<< HEAD
                 mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
                 mPowerManager.wakeUp(SystemClock.uptimeMillis());
                 doHapticFeedback();
                 break;
 >>>>>>> parent of d5cc484... oppo_common: Don't handle TAP2WAKE in Keyhandler
+=======
+>>>>>>> parent of 65d6a58... keyhandler: Some clean up
             case GESTURE_CIRCLE_SCANCODE:
                 ensureKeyguardManager();
                 final String action;
@@ -247,16 +255,17 @@ public class KeyHandler implements DeviceKeyHandler {
     }
 
     private void setNotification(int scanCode) {
-        int zenMode = Settings.Global.ZEN_MODE_OFF;
+        int zenMode = Global.ZEN_MODE_OFF;
         if (scanCode == MODE_TOTAL_SILENCE) {
-            zenMode = Settings.Global.ZEN_MODE_NO_INTERRUPTIONS;
+            zenMode = Global.ZEN_MODE_NO_INTERRUPTIONS;
         } else if (scanCode == MODE_PRIORITY_ONLY) {
-            zenMode = Settings.Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS;
+            zenMode = Global.ZEN_MODE_IMPORTANT_INTERRUPTIONS;
         }
         mNotificationManager.setZenMode(zenMode, null, null);
         doHapticFeedback(true);
     }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     @Override
     public boolean handleKeyEvent(KeyEvent event, DeviceHandlerCallback callback) {
@@ -271,10 +280,14 @@ public class KeyHandler implements DeviceKeyHandler {
 
 		int scanCode;
 
+=======
+    public boolean handleKeyEvent(KeyEvent event, DeviceHandlerCallback callback) {
+>>>>>>> parent of 65d6a58... keyhandler: Some clean up
         if (event.getAction() != KeyEvent.ACTION_UP) {
-            return true;
+            return false;
         }
-
+        int scanCode;
+        boolean isKeySupported = ArrayUtils.contains(sSupportedGestures, event.getScanCode());
         if ((scanCode = event.getScanCode()) >= MODE_TOTAL_SILENCE && scanCode <= MODE_NONE) {
             mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
             mNotificationSliderPosition = scanCode;
@@ -283,7 +296,7 @@ public class KeyHandler implements DeviceKeyHandler {
                     @Override
                     public void run() {
                         try {
-                            Thread.sleep(250);
+                            Thread.sleep(500);
                             mNotificationThread = null;
                             setNotification(mNotificationSliderPosition);
                         } catch (InterruptedException e) {
@@ -296,7 +309,11 @@ public class KeyHandler implements DeviceKeyHandler {
                 setNotification(scanCode);
             }
 <<<<<<< HEAD
+<<<<<<< HEAD
         } else if (!mEventHandler.hasMessages(GESTURE_REQUEST)) {
+=======
+        } else if (isKeySupported && !mEventHandler.hasMessages(GESTURE_REQUEST)) {
+>>>>>>> parent of 65d6a58... keyhandler: Some clean up
             Message msg = getMessageForKeyEvent(event.getScanCode(), callback);
 =======
         } else if (isKeySupported && !mEventHandler.hasMessages(GESTURE_REQUEST)) {
@@ -313,7 +330,7 @@ public class KeyHandler implements DeviceKeyHandler {
                 mEventHandler.sendMessage(msg);
             }
         }
-        return true;
+        return isKeySupported;
     }
 
     private Message getMessageForKeyEvent(KeyEvent keyEvent) {
