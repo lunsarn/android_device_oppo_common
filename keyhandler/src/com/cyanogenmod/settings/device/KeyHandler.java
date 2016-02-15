@@ -16,9 +16,11 @@
 
 package com.cyanogenmod.settings.device;
 
+import android.app.ActivityManagerNative;
 import android.app.KeyguardManager;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -30,16 +32,21 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraAccessException;
 import android.media.session.MediaSessionLegacyHelper;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.os.Vibrator;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.WindowManagerGlobal;
 
 import cyanogenmod.providers.CMSettings;
 
@@ -55,6 +62,9 @@ public class KeyHandler implements DeviceKeyHandler {
             "touchscreen_gesture_haptic_feedback";
     private static final String KEY_NOTIFICATION_SLIDER_HAPTIC_FEEDBACK =
             "notification_slider_haptic_feedback";
+
+    private static final String ACTION_DISMISS_KEYGUARD =
+            "com.android.keyguard.action.DISMISS_KEYGUARD_SECURELY";
 
     // Supported scancodes
 	private static final int FLIP_CAMERA_SCANCODE = 249;
@@ -83,6 +93,7 @@ public class KeyHandler implements DeviceKeyHandler {
 
     private final Context mContext;
     private final PowerManager mPowerManager;
+    private KeyguardManager mKeyguardManager;
     private EventHandler mEventHandler;
     private SensorManager mSensorManager;
     private CameraManager mCameraManager;
@@ -166,15 +177,33 @@ public class KeyHandler implements DeviceKeyHandler {
         return mRearCameraId;
     }
 
+    private void ensureKeyguardManager() {
+        if (mKeyguardManager == null) {
+            mKeyguardManager =
+                    (KeyguardManager) mContext.getSystemService(Context.KEYGUARD_SERVICE);
+        }
+    }
+
     private class EventHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.arg1) {
             case FLIP_CAMERA_SCANCODE:
             case GESTURE_CIRCLE_SCANCODE:
-                if (msg.obj != null && msg.obj instanceof DeviceHandlerCallback) {
-                    ((DeviceHandlerCallback) msg.obj).onScreenCameraGesture();
+                ensureKeyguardManager();
+                final String action;
+                mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
+                if (mKeyguardManager.isKeyguardSecure() && mKeyguardManager.isKeyguardLocked()) {
+                    action = MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE;
+                } else {
+                    mContext.sendBroadcastAsUser(new Intent(ACTION_DISMISS_KEYGUARD),
+                            UserHandle.CURRENT);
+                    action = MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA;
                 }
+                mPowerManager.wakeUp(SystemClock.uptimeMillis());
+                Intent intent = new Intent(action, null);
+                startActivitySafely(intent);
+                doHapticFeedback();
                 break;
             case GESTURE_TWO_SWIPE_SCANCODE:
                 dispatchMediaKeyWithWakeLockToMediaSession(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
@@ -217,10 +246,15 @@ public class KeyHandler implements DeviceKeyHandler {
         doHapticFeedback(true);
     }
 
+<<<<<<< HEAD
     @Override
     public boolean handleKeyEvent(KeyEvent event, DeviceHandlerCallback callback) {
         boolean isKeySupported = ArrayUtils.contains(sSupportedGestures, event.getScanCode());
         if (!isKeySupported) {
+=======
+    public boolean handleKeyEvent(KeyEvent event) {
+        if (event.getAction() != KeyEvent.ACTION_UP) {
+>>>>>>> parent of 267bb96... oppo keyhandler: use callback to launch camera
             return false;
         }
 
@@ -250,15 +284,20 @@ public class KeyHandler implements DeviceKeyHandler {
             } else {
                 setNotification(scanCode);
             }
+<<<<<<< HEAD
         } else if (!mEventHandler.hasMessages(GESTURE_REQUEST)) {
             Message msg = getMessageForKeyEvent(event.getScanCode(), callback);
+=======
+        } else if (isKeySupported && !mEventHandler.hasMessages(GESTURE_REQUEST)) {
+            Message msg = getMessageForKeyEvent(event);
+>>>>>>> parent of 267bb96... oppo keyhandler: use callback to launch camera
             boolean defaultProximity = mContext.getResources().getBoolean(
                 org.cyanogenmod.platform.internal.R.bool.config_proximityCheckOnWakeEnabledByDefault);
             boolean proximityWakeCheckEnabled = CMSettings.System.getInt(mContext.getContentResolver(),
                     CMSettings.System.PROXIMITY_ON_WAKE, defaultProximity ? 1 : 0) == 1;
             if (mProximityWakeSupported && proximityWakeCheckEnabled && mProximitySensor != null) {
                 mEventHandler.sendMessageDelayed(msg, mProximityTimeOut);
-                processEvent(event.getScanCode(), callback);
+                processEvent(event);
             } else {
                 mEventHandler.sendMessage(msg);
             }
@@ -266,12 +305,13 @@ public class KeyHandler implements DeviceKeyHandler {
         return true;
     }
 
-    private Message getMessageForKeyEvent(int scancode, DeviceHandlerCallback callback) {
-        Message msg = mEventHandler.obtainMessage(GESTURE_REQUEST, scancode, 0, callback);
+    private Message getMessageForKeyEvent(KeyEvent keyEvent) {
+        Message msg = mEventHandler.obtainMessage(GESTURE_REQUEST);
+        msg.obj = keyEvent;
         return msg;
     }
 
-    private void processEvent(final int scancode, final DeviceHandlerCallback callback) {
+    private void processEvent(final KeyEvent keyEvent) {
         mProximityWakeLock.acquire();
         mSensorManager.registerListener(new SensorEventListener() {
             @Override
@@ -284,7 +324,7 @@ public class KeyHandler implements DeviceKeyHandler {
                 }
                 mEventHandler.removeMessages(GESTURE_REQUEST);
                 if (event.values[0] == mProximitySensor.getMaximumRange()) {
-                    Message msg = getMessageForKeyEvent(scancode, callback);
+                    Message msg = getMessageForKeyEvent(keyEvent);
                     mEventHandler.sendMessage(msg);
                 }
             }
@@ -305,6 +345,19 @@ public class KeyHandler implements DeviceKeyHandler {
             helper.sendMediaButtonEvent(event, true);
         } else {
             Log.w(TAG, "Unable to send media key event");
+        }
+    }
+
+    private void startActivitySafely(Intent intent) {
+        intent.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        try {
+            UserHandle user = new UserHandle(UserHandle.USER_CURRENT);
+            mContext.startActivityAsUser(intent, null, user);
+        } catch (ActivityNotFoundException e) {
+            // Ignore
         }
     }
 
