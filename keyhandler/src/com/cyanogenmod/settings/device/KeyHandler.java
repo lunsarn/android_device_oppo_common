@@ -187,8 +187,19 @@ public class KeyHandler implements DeviceKeyHandler {
     private class EventHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
+<<<<<<< HEAD
             switch (msg.arg1) {
             case FLIP_CAMERA_SCANCODE:
+=======
+            KeyEvent event = (KeyEvent) msg.obj;
+            int scanCode = event.getScanCode();
+            switch (scanCode) {
+			case FLIP_CAMERA_SCANCODE:
+                mGestureWakeLock.acquire(GESTURE_WAKELOCK_DURATION);
+                mPowerManager.wakeUp(SystemClock.uptimeMillis());
+                doHapticFeedback();
+                break;
+>>>>>>> parent of d5cc484... oppo_common: Don't handle TAP2WAKE in Keyhandler
             case GESTURE_CIRCLE_SCANCODE:
                 ensureKeyguardManager();
                 final String action;
