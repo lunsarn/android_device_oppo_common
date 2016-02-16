@@ -24,11 +24,11 @@
     <string name="slider_top">Top slider</string>
     <string name="slider_middle">Middle slider</string>
     <string name="slider_bottom">Bottom slider</string>
-    <string name="total_silence">Total silence</string>
+    <string name="total_silence">Do not disturb</string>
     <string name="priority_only">Priority only</string>
-    <string name="none">None</string>
+    <string name="none">Sound</string>
 
     <!-- Haptic feedback  -->
     <string name="haptic_feedback">Haptic feedback</string>
-    <string name="haptic_feedback_summary">Vibrate when the notifciation slider got moved</string>
+    <string name="haptic_feedback_summary">Vibrate when using the notifciation slider</string>
 </resources>
