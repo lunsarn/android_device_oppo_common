@@ -30,5 +30,5 @@
 
     <!-- Haptic feedback  -->
     <string name="haptic_feedback">Haptic feedback</string>
-    <string name="haptic_feedback_summary">Vibrate when using the notifciation slider</string>
+    <string name="haptic_feedback_summary">Vibrate when using the notification slider</string>
 </resources>
